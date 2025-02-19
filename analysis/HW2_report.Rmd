@@ -1,0 +1,313 @@
+---
+title: "Homework 2"
+author: "Weijia Qian"
+header-includes: \usepackage{multirow}
+output:
+  pdf_document: default
+  html_document: default
+urlcolor: blue
+---
+
+```{r, include=FALSE}
+library(gt)
+library(here)
+library(survival)
+library(tidyverse)
+knitr::opts_chunk$set(tidy = FALSE, warning = FALSE)
+```
+
+GitHub repository: https://github.com/wqian22/bios731_hw2_qian.git
+
+### Problem 1: Newton's method
+
+The logistic regression model assumes:
+$$P(Y_i=1|X_i)=\pi_i=\frac{e^{X_i^T\beta}}{1+e^{X_i^T\beta}}$$
+The likelihood function is:
+$$L(\beta)=\prod_{i=1}^n \pi_i^{y_i}(1-\pi_i)^{1-y_i}$$
+The log-likelihood is:
+$$
+\begin{aligned}
+l(\beta) &= \sum_{i=1}^n\left[y_i\log(\pi_i)+(1-y_i)\log(1-\pi_i)\right]\\
+&= \sum_{i=1}^n\left[y_iX_i^T\beta-\log(1+e^{X_i^T\beta})\right]
+\end{aligned}
+$$
+Compute the gradient:
+$$
+\begin{aligned}
+\frac{\partial\pi_i}{\partial\beta_j}&=\pi_i(1-\pi_i)x_{ij}\\
+\frac{\partial l(\beta)}{\partial\beta_j}&=\sum_{i=1}^n\left[\frac{y_i}{\pi_i}\frac{\partial\pi_i}{\partial\beta_j}+\frac{1-y_i}{1-\pi_i}(-\frac{\partial\pi_i}{\partial\beta_j})\right]\\
+&=\sum_{i=1}^n(y_i-\pi_i)x_{ij}
+\end{aligned}
+$$
+In matrix form, defining $\underset{n\times p}{X}$ as the design matrix, $y=(y_1,\dots, y_n)^T$, $\pi=(\pi_1,\dots, \pi_n)^T$, the gradient vector is:
+$$\Delta l(\beta)=X^T(y-\pi)$$
+The Hessian matrix $\underset{p\times p}{H}$ is the second derivative of the log-likelihood:
+$$H_{jk}=\frac{\partial^2l(\beta)}{\partial\beta_j\partial\beta_k}=-\sum_{i=1}^n\pi_i(1-\pi_i)x_{ij}x_{jk}$$
+In matrix form, let $W$ be an $n\times n$ diagonal matrix with $\pi_i(1-\pi_i)$ on the diagonal:
+$$H=-X^TWX$$
+
+The Newton's method update for $\beta$ is:
+$$
+\begin{aligned}
+\beta^{(t+1)}&=\beta^{(t)}-H^{-1}\Delta l(\beta)\\
+&=\beta^{(t)}+(X^TWX)^{-1}X^T(y-\pi)
+\end{aligned}
+$$
+Logistic regression a convex optimization problem. The Hessian of the log-likelihood is $H=-X^TWX$, where $W$ is a diagonal matrix with entries $W_{ii}=\pi_i(1-\pi_i)>0$, so W is positive definite and H is negative semi-definite. Thus, the log-likelihood is concave, meaning its negative (the loss function) is convex.
+
+
+### Problem 2: MM
+
+(A) In constructing a minorizing function, first prove the inequality
+
+$$-\log\{1 + \exp{X_i^T\theta}\} \ge -\log\{1 + \exp(X_i^T\theta^{(k)})\} - \frac{\exp(X_i^T\theta) - \exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}$$
+with equality when $\theta = \theta^{(k)}$. This eliminates the log terms.
+
+Define $g(x)=-\log(1+e^x)$, then $g'(x)=-\frac{e^x}{1+e^x}$, $g''(x)=\frac{e^x}{(1+e^x)^2}>0$. Since $g$ is convex and differentiable, by the supporting hyperplane property,
+$$g(X_i^T\theta)\ge g(X_i^T\theta^{(k)})+g'(X_i^T\theta^{(k)})(X_i^T\theta-X_i^T\theta^{(k)}), \quad \forall X_i^T\theta, X_i^T\theta^{(k)}\in \mathbb{R}$$
+$$\Rightarrow -\log\{1 + \exp{X_i^T\theta}\} \ge -\log\{1 + \exp(X_i^T\theta^{(k)})\} - \frac{\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}(X_i^T\theta-X_i^T\theta^{(k)})$$
+Because $f(x)=e^x$ is convex and differentiable, by the supporting hyperplane property, $e^a\ge e^b+e^b(a-b)\Rightarrow e^a-e^b\ge e^b(a-b)$, $\forall a,b\in\mathbb{R}$. Let $a=X_i^T\theta$ and $b=X_i^T\theta^{(k)}$, we have
+$$\exp(X_i^T\theta) - \exp(X_i^T\theta^{(k)}) \ge \exp(X_i^T\theta^{(k)})(X_i^T\theta-X_i^T\theta^{(k)}).$$
+Thus,
+
+$$-\log\{1 + \exp{X_i^T\theta}\} \ge -\log\{1 + \exp(X_i^T\theta^{(k)})\} - \frac{\exp(X_i^T\theta) - \exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}$$
+with equality when $X_i^T\theta = X_i^T\theta^{(k)}\Leftrightarrow\theta=\theta^{(k)}$.
+
+<br>
+
+(B) Now apply the arithmetic-geometric mean inequality to the exponential function $\exp(X_i^T\theta)$ to separate the parameters. Assuming that $\theta$ has $p$ components and that there are $n$ observations, show that these maneuvers lead to a minorizing function
+
+$$g(\theta|\theta^{(k)}) = -\frac{1}{p}\sum_{i = 1}^n \frac{\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\sum_{j = 1}^p\exp\{pX_{ij}(\theta_j-\theta_j^{(k)})\} + \sum_{i = 1}^nY_iX_i^T\theta = 0$$
+
+up to a constant that does not depend on $\theta$.
+
+By the arithmetic-geometric mean inequality,
+$$
+\begin{aligned}
+\exp(X_i^T\theta)=\exp\left(\sum_{j=1}^pX_{ij}\theta_j\right)=\prod_{j=1}^p\exp(X_{ij}\theta_j)\le\frac{1}{p}\sum_{j=1}^p\exp(pX_{ij}\theta_j)
+\end{aligned}
+$$
+Substitute this into the linearized term in (A):
+$$
+\begin{aligned}
+- \frac{\exp(X_i^T\theta) - \exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})} &\ge-\frac{\frac{1}{p}\sum_{j=1}^ppX_{ij}\theta_j-\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\\
+&=-\frac{1}{p}\sum_{j=1}^p\frac{\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\exp\{pX_{ij}(\theta_j-\theta_j^{(k)})\}
+\end{aligned}
+$$
+Summing over all observations $i$,
+$$
+\begin{aligned}
+g(\theta|\theta^{(k)}) &= -\frac{1}{p}\sum_{i = 1}^n \frac{\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\sum_{j = 1}^p\exp\{pX_{ij}(\theta_j-\theta_j^{(k)})\} + \sum_{i = 1}^nY_iX_i^T\theta\\
+&\le \sum_{i=1}^n - \frac{\exp(X_i^T\theta) - \exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}+ \sum_{i = 1}^nY_iX_i^T\theta\\
+&\le \sum_{i=1}^n -\log\{1 + \exp{X_i^T\theta}\}+ \sum_{i = 1}^nY_iX_i^T\theta=l(\theta)
+\end{aligned}
+$$
+up to a constant $-\log\{1 + \exp(X_i^T\theta^{(k)})\}$ that does not depend on $\theta$.
+
+Therefore, $g(\theta|\theta^{(k)})$ is a minorizing function of $l(\theta)$.
+
+(C) Finally, prove that maximizing $g(\theta|\theta^{(k)})$ consists of solving the equation
+
+$$ -\sum_{i = 1}^n \frac{\exp(X_i^T\theta^{(k)})X_{ij}\exp(-pX_{ij}\theta_j^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\exp(pX_{ij}\theta_j) + \sum_{i = 1}^nY_iX_{ij} = 0$$
+for each $j$.
+
+To maximize $g(\theta|\theta^{(k)})$, we set $\frac{\partial g}{\partial \theta_j}=0$ for each $j$:
+$$
+\begin{aligned}
+\frac{\partial g}{\partial \theta_j} &= -\frac{1}{p}\sum_{i = 1}^n\frac{\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\sum_{j=1}^p\frac{\partial}{\partial \theta_j}\exp\{pX_{ij}(\theta_j-\theta_j^{(k)})\}+\sum_{i = 1}^nY_iX_{ij}\\
+&= -\frac{1}{p}\sum_{i = 1}^n\frac{\exp(X_i^T\theta^{(k)})}{1 + \exp(X_i^T\theta^{(k)})} pX_{ij}\exp\{pX_{ij}(\theta_j-\theta_j^{(k)})\}+\sum_{i = 1}^nY_iX_{ij}\\
+&= -\sum_{i = 1}^n\frac{\exp(X_i^T\theta^{(k)})X_{ij}}{1 + \exp(X_i^T\theta^{(k)})} \exp\{pX_{ij}(\theta_j-\theta_j^{(k)})\}+\sum_{i = 1}^nY_iX_{ij}\\
+&= -\sum_{i = 1}^n \frac{\exp(X_i^T\theta^{(k)})X_{ij}\exp(-pX_{ij}\theta_j^{(k)})}{1 + \exp(X_i^T\theta^{(k)})}\exp(pX_{ij}\theta_j) + \sum_{i = 1}^nY_iX_{ij} = 0
+\end{aligned}
+$$
+
+### Problem 3: simulation
+
+All four methods (Newton, MM, GLM, and BFGS) yield nearly identical estimates of $\hat{\beta}_0$ and $\hat{\beta}_1$, with confidence intervals that are also very similar across methods and contain the true values. Newton, MM, and GLM converge in just four iterations, while BFGS requires more iterations but runs the fastest. The Newton method is the slowest among the four.
+
+```{r}
+load(here("results", "results.RDA"))
+
+# Display results
+gt(results_df) %>%
+  tab_header(
+    title = "Simulation Results Across Optimzation Methods",
+  )
+
+# Plot estimated beta_0
+ggplot(results_df, aes(x = Method, y = Beta_0)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_errorbar(aes(ymin = as.numeric(sub(".*\\((.*),.*", "\\1", CI_Beta_0)),
+                    ymax = as.numeric(sub(".*,(.*)\\)", "\\1", CI_Beta_0))),
+                width = 0.2) +
+  geom_hline(aes(yintercept = 1, color = "True Value", linetype = "True Value"), size = 1) +  # Legend-controlled line
+  scale_color_manual(name = "", values = c("True Value" = "red")) +
+  scale_linetype_manual(name = "", values = c("True Value" = "dashed")) +
+  theme_minimal() +
+  labs(title = expression("Estimated " ~ beta[0] ~ " with 95% Confidence Interval"), 
+       y = expression(hat(beta)[0]), 
+       x = "Method")
+
+# Plot estimated beta_1
+ggplot(results_df, aes(x = Method, y = Beta_1)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_errorbar(aes(ymin = as.numeric(sub(".*\\((.*),.*", "\\1", CI_Beta_1)),
+                    ymax = as.numeric(sub(".*,(.*)\\)", "\\1", CI_Beta_1))),
+                width = 0.2) +
+  geom_hline(aes(yintercept = 0.3, color = "True Value", linetype = "True Value"), size = 1) +  # Legend-controlled line
+  scale_color_manual(name = "", values = c("True Value" = "red")) +
+  scale_linetype_manual(name = "", values = c("True Value" = "dashed")) +
+  theme_minimal() +
+  labs(title = expression("Estimated " ~ beta[1] ~ " with 95% Confidence Interval"), 
+       y = expression(hat(beta)[1]), 
+       x = "Method")
+```
+
+
+
+## Problem 4: EM algorithm for censored exponential data
+
+This will be a continuation of the lab problem on EM for censored exponential data. Suppose we have survival times $t_1, \ldots, t_n \sim Exponential(\lambda)$. 
+
+* Do not observe all survival times because some are censored at times $c_1, \ldots, c_n$.  
+* Actually observe $y_1, \ldots, y_n$, where $y_i = min(y_0, c_i)$
+  * Also have an indicator $\delta_i$ where $\delta_i = 1$ is $y_i \le c_i$
+    * i.e. $\delta_i = 1$ if not censored and $\delta_i = 0$ if censored
+    
+Do the following:
+
+* Derive an EM algorithm to estimate the parameter $\lambda$.  Show your derivation here and report updates for the **E-step** and **M-Step**.
+
+The complete-data likelihood is:
+$$L_c(\lambda) = \prod_{i=1}^{n} f(t_i | \lambda)^{\delta_i} S(c_i | \lambda)^{1 - \delta_i}$$
+where $f(t_i | \lambda) = \lambda e^{-\lambda t_i}$  is the density of an exponential distribution, and $S(c_i | \lambda) = P(T_i > c_i) = e^{-\lambda c_i}$  is the survival function.
+
+Taking the log:
+$$
+\begin{aligned}
+\log L_c(\lambda) &= \sum_{i=1}^{n} \delta_i \log \lambda - \lambda \sum_{i=1}^{n} \delta_i t_i + \sum_{i=1}^{n} (1 - \delta_i)(-\lambda c_i)\\
+&= \sum_{i=1}^{n} \delta_i \log \lambda - \lambda \sum_{i=1}^{n} \left[ \delta_i t_i + (1 - \delta_i) c_i \right].
+\end{aligned}
+$$
+
+Expectation step (E-step):\
+For censored observations ($\delta_i = 0$), by the memoryless property of exponential distribution, the conditional expectation of $t_i$ is:
+$$E[t_i | t_i > c_i] = c_i + \frac{1}{\lambda}$$
+Thus, the expectation of $t_i$ is:
+$$E[t_i | \lambda] = \delta_i y_i + (1 - \delta_i) \left(c_i + \frac{1}{\lambda^{(k)}} \right)$$
+The expected log-likelihood is:
+$$
+\begin{aligned}
+Q(\lambda) = E[\log L_c(\lambda)] &= \sum_{i=1}^{n} \delta_i \log \lambda - \lambda \sum_{i=1}^{n} E[t_i | \lambda]\\
+&= \sum_{i=1}^{n} \delta_i \log \lambda - \lambda \sum_{i=1}^{n} \left( \delta_i y_i + (1 - \delta_i) \left( c_i + \frac{1}{\lambda} \right) \right)
+\end{aligned}
+$$
+Maximization step (M-step):\
+Taking derivative of $Q(\lambda)$ for $\lambda$ and set it to zero:
+$$
+\begin{aligned}
+&\frac{d}{d\lambda} \left( \sum_{i=1}^{n} \delta_i \log \lambda - \lambda \sum_{i=1}^{n} E[t_i | \lambda] \right) = 0\\
+\Rightarrow 
+&\sum_{i=1}^{n} \frac{\delta_i}{\lambda} - \sum_{i=1}^{n} E[t_i | \lambda] = 0\\
+\Rightarrow 
+&\lambda = \frac{n}{\sum_{i=1}^{n} E[t_i | \lambda]}
+\end{aligned}
+$$
+Substituting $E[t_i | \lambda]$, the update formula is:
+$$\lambda^{(k+1)} = \frac{n}{\sum_{i=1}^{n} \left( \delta_i y_i + (1 - \delta_i) \left( c_i + \frac{1}{\lambda^{(k)}} \right) \right)}$$
+
+
+* Implement your EM in R and fit it to the `veteran` dataset from the `survival` package. 
+```{r}
+# Load the veteran dataset
+y <- veteran$time 
+delta <- veteran$status
+
+# EM algorithm for exponential distribution
+EM_exponential <- function(y, delta, tol = 1e-6, max_iter = 1000, verbose = TRUE) {
+  n <- length(y)
+  lambda <- 1 / mean(y)  # Initial estimate
+  lambda_history <- numeric(max_iter)  # Store values for monitoring
+  
+  for (k in 1:max_iter) {
+    # E-step: expected value of unobserved survival times
+    expected_t <- delta * y + (1 - delta) * (y + 1/lambda)
+    
+    # M-step: update lambda
+    lambda_new <- n / sum(expected_t)
+    
+    # Store lambda for monitoring
+    lambda_history[k] <- lambda_new
+    
+    # Check for convergence
+    if (abs(lambda_new - lambda) < tol) {
+      lambda_history <- lambda_history[1:k]
+      break
+    }
+    
+    lambda <- lambda_new
+  }
+  
+  return(list(lambda = lambda, lambda_history = lambda_history))
+}
+
+# Fit the EM algorithm
+EM_res <- EM_exponential(y, delta)
+```
+
+  * Report your fitted $\lambda$ value. How did you monitor convergence?
+  
+  The fitted $\lambda$ value is `r round(EM_res$lambda, 3)`. I monitored convergence by storing lambda for each iteration. The absolute difference between the last two lambda values is less than 1e-6.
+  
+  
+  * Report a 95% confidence interval for $\lambda$, and explain how it was obtained.
+```{r}
+bootstrap_CI <- function(y, delta, B = 1000, alpha = 0.05) {
+  lambda_boot <- numeric(B)
+  n <- length(y)
+  
+  for (b in 1:B) {
+    idx <- sample(1:n, n, replace = TRUE)  # Bootstrap sample
+    y_boot <- y[idx]
+    delta_boot <- delta[idx]
+    
+    result <- EM_exponential(y_boot, delta_boot, verbose = FALSE)
+    lambda_boot[b] <- result$lambda
+  }
+  
+  # Compute percentile confidence interval
+  CI_lower <- quantile(lambda_boot, alpha/2)
+  CI_upper <- quantile(lambda_boot, 1 - alpha/2)
+  
+  return(c(CI_lower, CI_upper))
+}
+
+lambda_CI <- bootstrap_CI(y, delta)
+```
+
+A 95% bootstrap percentile confidence interval for $\lambda$ is (`r round(lambda_CI, 3)`). It was obtained by repeatedly resampling the original data with replacement, re-estimate $\lambda$ using the EM algorithm for each bootstrap sample, and then compute the 2.5th and 97.5th percentiles from the distribution of bootstrap estimates.
+
+  
+  * Compare 95% confidence interval and results from those obtained by fitting an accelerated failure time model (AFT) in R with exponential errors.  You can fit an AFT model using the `phreg()` function from the `survival` package.  If you choose `dist = "weibull` and `shape = 1` as parameter arguments, this will provide exponential errors.
+
+```{r}
+aft_model <- survreg(Surv(y, delta) ~ 1, dist = "weibull", scale = 1)
+lambda_aft <- exp(-aft_model$coefficients)  # Convert from log scale
+lambda_aft_CI <- exp(-aft_model$coefficients + c(-1.96, 1.96) * summary(aft_model)$table[1, 2])
+```
+
+The fitted $\lambda$ value from the AFT model is `r round(lambda_aft, 3)`, with 95% CI (`r round(lambda_aft_CI, 3)`). The results obtained from EM and AFT model are almost identical.
+
+
+## Extra credit (up to 10 points)! Expected vs. observed information
+
+
+**Part A**: Show that the expected and observed information are equivalent for logistic regression
+
+<br>
+**Part B**: Let's say you are instead performing probit regression, which is similar to logistic regression but with a different link function.  Specifically, probit regression uses a probit link: 
+
+
+$$\Phi^{-1}(Pr[Y_i = 1 |X_i]) = X_i^T\beta,$$
+
+where $\Phi^{-1}$ is inverse of the CDF for the standard normal distribution.  **Are the expected and observed information equivalent for probit regression?** Justify why or why not.
