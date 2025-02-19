@@ -13,7 +13,7 @@ library(gt)
 library(here)
 library(survival)
 library(tidyverse)
-knitr::opts_chunk$set(tidy = FALSE, warning = FALSE)
+knitr::opts_chunk$set(tidy = FALSE, echo = FALSE, warning = FALSE)
 ```
 
 GitHub repository: https://github.com/wqian22/bios731_hw2_qian.git
@@ -285,7 +285,7 @@ bootstrap_CI <- function(y, delta, B = 1000, alpha = 0.05) {
 lambda_CI <- bootstrap_CI(y, delta)
 ```
 
-A 95% bootstrap percentile confidence interval for $\lambda$ is (`r round(lambda_CI, 3)`). It was obtained by repeatedly resampling the original data with replacement, re-estimate $\lambda$ using the EM algorithm for each bootstrap sample, and then compute the 2.5th and 97.5th percentiles from the distribution of bootstrap estimates.
+  A 95% bootstrap percentile confidence interval for $\lambda$ is (`r round(lambda_CI, 3)`). It was obtained by repeatedly resampling the original data with replacement, re-estimate $\lambda$ using the EM algorithm for each bootstrap sample, and then compute the 2.5th and 97.5th percentiles from the distribution of bootstrap estimates.
 
   
   * Compare 95% confidence interval and results from those obtained by fitting an accelerated failure time model (AFT) in R with exponential errors.  You can fit an AFT model using the `phreg()` function from the `survival` package.  If you choose `dist = "weibull` and `shape = 1` as parameter arguments, this will provide exponential errors.
@@ -296,7 +296,7 @@ lambda_aft <- exp(-aft_model$coefficients)  # Convert from log scale
 lambda_aft_CI <- exp(-aft_model$coefficients + c(-1.96, 1.96) * summary(aft_model)$table[1, 2])
 ```
 
-The fitted $\lambda$ value from the AFT model is `r round(lambda_aft, 3)`, with 95% CI (`r round(lambda_aft_CI, 3)`). The results obtained from EM and AFT model are almost identical.
+  The fitted $\lambda$ value from the AFT model is `r round(lambda_aft, 3)`, with 95% CI (`r round(lambda_aft_CI, 3)`). The results obtained from EM and AFT model are almost identical.
 
 
 ## Extra credit (up to 10 points)! Expected vs. observed information
